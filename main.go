@@ -11,8 +11,8 @@ import (
 	"github.com/andy-smoker/clerk"
 )
 
-func getWhiteList(login, pass string) []string {
-	req, err := http.NewRequest("GET", `https://hr-link.atlassian.net/rest/api/latest/search?jql=project="HRL"%20AND%20status%20in%20("In%20Testing","Ready%20for%20Testing")`, nil)
+func getWhiteList(login, pass, project string) []string {
+	req, err := http.NewRequest("GET", `https://`+project+`.atlassian.net/rest/api/latest/search?jql=project="HRL"%20AND%20status%20in%20("In%20Testing","Ready%20for%20Testing")`, nil)
 	if err != nil {
 		return nil
 	}
@@ -46,6 +46,7 @@ type CFG struct {
 	Login   string   `toml:"login"`
 	Pass    string   `toml:"pass"`
 	Hour    int      `toml:"hour"`
+	Project string   `toml:"project"`
 }
 
 func getConfig() *CFG {
@@ -54,6 +55,7 @@ func getConfig() *CFG {
 		WorkDir: "./",
 		Login:   "",
 		Pass:    "",
+		Project: "",
 	}
 	toml.DecodeFile("config.toml", &cfg)
 	return &cfg
@@ -75,7 +77,7 @@ func main() {
 
 	for {
 		if time.Now().Hour() == cfg.Hour {
-			list := getWhiteList(cfg.Login, cfg.Pass)
+			list := getWhiteList(cfg.Login, cfg.Pass, cfg.Project)
 			dir, err := os.ReadDir(cfg.WorkDir)
 			if err != nil {
 				p.WriteLog(2, time.Now(), err.Error())
