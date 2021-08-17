@@ -5,3 +5,4 @@ ignore = ["diriktory", "or", "file", "name"]
 login = "atlssian@user.login"
 pass = "atlassian-token"
 hour = 0  // removal hour 
+project = "subdomain-atlassian"
