@@ -6,15 +6,18 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/BurntSushi/toml"
+	"github.com/andy-smoker/clerk"
 )
 
-func getWhiteList() []string {
+func getWhiteList(login, pass string) []string {
 	req, err := http.NewRequest("GET", `https://hr-link.atlassian.net/rest/api/latest/search?jql=project="HRL"%20AND%20status%20in%20("In%20Testing","Ready%20for%20Testing")`, nil)
 	if err != nil {
 		return nil
 	}
 	req.Header.Add("Content-Type", "application/json")
-	req.SetBasicAuth("abalan@hr-link.ru", "5kpsOrriEo3YhBXjRQ5b736C")
+	req.SetBasicAuth(login, pass)
 	cl := http.Client{}
 	resp, err := cl.Do(req)
 	if err != nil {
@@ -36,19 +39,32 @@ func getWhiteList() []string {
 
 }
 
+type CFG struct {
+	Logpath string   `toml:"log"`
+	WorkDir string   `toml:"work"`
+	Ignore  []string `toml:"ignore"`
+	Login   string   `toml:"login"`
+	Pass    string   `toml:"pass"`
+	Hour    int      `toml:"hour"`
+}
+
+func getConfig() *CFG {
+	cfg := CFG{
+		Logpath: "./rm.log",
+		WorkDir: "./",
+		Login:   "",
+		Pass:    "",
+	}
+	toml.DecodeFile("config.toml", &cfg)
+	return &cfg
+}
+
 func main() {
-
-	logPath := "/var/hr-link/rm.log"
-	logPath = "./rm.log"
-	workPath := ""
-	workPath = "/home/andew/test_folder/"
-
-	file, _ := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, os.ModeAppend)
-	file.WriteString(fmt.Sprintf("%s %s", time.Now().Format("\n2006-01-02 15:04:05"), "start"))
-	file.Close()
-
+	cfg := getConfig()
+	p := clerk.NewPrinter("INFO", "gongfarmer", cfg.Logpath)
+	p.WriteLog(1, time.Now(), "start")
 	check := func(name string, list []string) bool {
-		list = append(list, "hotfix", "release", "master", "test-merge")
+		list = append(list, cfg.Ignore...)
 		for _, l := range list {
 			for name == l {
 				return false
@@ -57,28 +73,32 @@ func main() {
 		return true
 	}
 
-	if _, err := os.Stat(logPath); err == os.ErrNotExist {
-		f, _ := os.Create(logPath)
-		f.Chmod(0777)
-		f.Close()
-	}
 	for {
-		if time.Now().Hour() == 12 {
-			fmt.Println(1)
-			list := getWhiteList()
-			dir, _ := os.ReadDir(workPath)
-			file, _ := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, os.ModeAppend)
+		if time.Now().Hour() == cfg.Hour {
+			list := getWhiteList(cfg.Login, cfg.Pass)
+			dir, err := os.ReadDir(cfg.WorkDir)
+			if err != nil {
+				p.WriteLog(2, time.Now(), err.Error())
+				return
+			}
 
 			for _, f := range dir {
 				if check(f.Name(), list) {
-					os.RemoveAll(workPath + f.Name())
-					file.WriteString(fmt.Sprintf("%s %s", time.Now().Format("\n2006-01-02 15:04:05"), f.Name()))
+					err = os.RemoveAll(cfg.WorkDir + f.Name())
+					if err != nil {
+						p.WriteLog(2, time.Now(), err.Error())
+					} else {
+						p.WriteLog(1, time.Now(), "remove "+f.Name())
+					}
+
 				}
 			}
-			file.Close()
+			p.WriteLog(1, time.Now(), "Wait 24h")
+			time.Sleep(time.Hour * 24)
 		} else {
-			fmt.Println(2)
+			p.WriteLog(1, time.Now(), "Wait 1h")
 			time.Sleep(time.Hour * 1)
 		}
 	}
+
 }
