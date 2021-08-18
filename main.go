@@ -40,7 +40,7 @@ func getWhiteList(login, pass, project string) []string {
 
 }
 
-// CFG - struct to parse config file
+// CFG - struct for parse config file
 type CFG struct {
 	Logpath string   `toml:"log"`
 	WorkDir string   `toml:"work"`
