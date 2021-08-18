@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -12,31 +11,33 @@ import (
 )
 
 // get issues list with status "In Testing" or "Ready for Testing"
-func getWhiteList(login, pass, project string) []string {
+func getWhiteList(login, pass, project string) ([]string, error) {
 	req, err := http.NewRequest("GET", `https://`+project+`.atlassian.net/rest/api/latest/search?jql=project="HRL"%20AND%20status%20in%20("In%20Testing","Ready%20for%20Testing")`, nil)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.SetBasicAuth(login, pass)
 	cl := http.Client{}
 	resp, err := cl.Do(req)
 	if err != nil {
-		fmt.Println(err)
-		return nil
+		return nil, err
 	}
 	defer resp.Body.Close()
+
+	// struct for response
 	t := struct {
 		Issues []struct {
 			Key string `json:"key"`
 		} `json:"issues"`
 	}{}
+
 	json.NewDecoder(resp.Body).Decode(&t)
 	list := []string{}
 	for _, i := range t.Issues {
 		list = append(list, i.Key)
 	}
-	return list
+	return list, nil
 
 }
 
@@ -80,11 +81,13 @@ func main() {
 
 	for {
 		if time.Now().Hour() == cfg.Hour {
-			list := getWhiteList(cfg.Login, cfg.Pass, cfg.Project)
+			list, err := getWhiteList(cfg.Login, cfg.Pass, cfg.Project)
+			if err != nil {
+				p.WriteLog(2, time.Now(), err.Error())
+			}
 			dir, err := os.ReadDir(cfg.WorkDir)
 			if err != nil {
 				p.WriteLog(2, time.Now(), err.Error())
-				return
 			}
 
 			for _, f := range dir {
