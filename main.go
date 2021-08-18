@@ -11,6 +11,7 @@ import (
 	"github.com/andy-smoker/clerk"
 )
 
+// get issues list with status "In Testing" or "Ready for Testing"
 func getWhiteList(login, pass, project string) []string {
 	req, err := http.NewRequest("GET", `https://`+project+`.atlassian.net/rest/api/latest/search?jql=project="HRL"%20AND%20status%20in%20("In%20Testing","Ready%20for%20Testing")`, nil)
 	if err != nil {
@@ -39,6 +40,7 @@ func getWhiteList(login, pass, project string) []string {
 
 }
 
+// CFG - struct to parse config file
 type CFG struct {
 	Logpath string   `toml:"log"`
 	WorkDir string   `toml:"work"`
@@ -49,22 +51,23 @@ type CFG struct {
 	Project string   `toml:"project"`
 }
 
+// getConfig - parse file config.toml
 func getConfig() *CFG {
-	cfg := CFG{
+	cfg := &CFG{
 		Logpath: "./rm.log",
 		WorkDir: "./",
-		Login:   "",
-		Pass:    "",
-		Project: "",
 	}
-	toml.DecodeFile("config.toml", &cfg)
-	return &cfg
+	toml.DecodeFile("config.toml", cfg)
+	return cfg
 }
 
 func main() {
 	cfg := getConfig()
+	// create new logs printer
 	p := clerk.NewPrinter("INFO", "gongfarmer", cfg.Logpath)
 	p.WriteLog(1, time.Now(), "start")
+
+	// anonimus func for check file/directory name in ignore list
 	check := func(name string, list []string) bool {
 		list = append(list, cfg.Ignore...)
 		for _, l := range list {
@@ -90,11 +93,11 @@ func main() {
 					if err != nil {
 						p.WriteLog(2, time.Now(), err.Error())
 					} else {
-						p.WriteLog(1, time.Now(), "remove "+f.Name())
+						p.WriteLog(1, time.Now(), f.Name()+" removed")
 					}
-
 				}
 			}
+
 			p.WriteLog(1, time.Now(), "Wait 24h")
 			time.Sleep(time.Hour * 24)
 		} else {
@@ -102,5 +105,4 @@ func main() {
 			time.Sleep(time.Hour * 1)
 		}
 	}
-
 }
