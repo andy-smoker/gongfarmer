@@ -25,7 +25,7 @@ func getWhiteList(login, pass, project string) ([]string, error) {
 	}
 	defer resp.Body.Close()
 
-	// struct for response
+	// struct for parsing response
 	t := struct {
 		Issues []struct {
 			Key string `json:"key"`
@@ -41,7 +41,7 @@ func getWhiteList(login, pass, project string) ([]string, error) {
 
 }
 
-// CFG - struct for parse config file
+// CFG - struct for parsing config file
 type CFG struct {
 	Logpath string   `toml:"log"`
 	WorkDir string   `toml:"work"`
@@ -67,10 +67,8 @@ func main() {
 	// create new logs printer
 	p := clerk.NewPrinter("INFO", "gongfarmer", cfg.Logpath)
 	p.WriteLog(1, time.Now(), "start")
-
 	// anonimus func for check file/directory name in ignore list
 	check := func(name string, list []string) bool {
-		list = append(list, cfg.Ignore...)
 		for _, l := range list {
 			for name == l {
 				return false
@@ -81,10 +79,14 @@ func main() {
 
 	for {
 		if time.Now().Hour() == cfg.Hour {
+			cfg = getConfig()
+
 			list, err := getWhiteList(cfg.Login, cfg.Pass, cfg.Project)
 			if err != nil {
 				p.WriteLog(2, time.Now(), err.Error())
 			}
+			list = append(list, cfg.Ignore...)
+
 			dir, err := os.ReadDir(cfg.WorkDir)
 			if err != nil {
 				p.WriteLog(2, time.Now(), err.Error())
