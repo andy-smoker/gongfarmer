@@ -43,13 +43,15 @@ func getWhiteList(login, pass, project string) ([]string, error) {
 
 // CFG - struct for parsing config file
 type CFG struct {
-	Logpath string   `toml:"log"`
-	WorkDir string   `toml:"work"`
-	Ignore  []string `toml:"ignore"`
-	Login   string   `toml:"login"`
-	Pass    string   `toml:"pass"`
-	Hour    int      `toml:"hour"`
-	Project string   `toml:"project"`
+	Logpath        string   `toml:"log"`
+	WorkDir        string   `toml:"work_directory"`
+	ServiceDirs    []string `toml:"service_dirs"`
+	Ignore         []string `toml:"ignore_list"`
+	Login          string   `toml:"login"`
+	JiraToken      string   `toml:"jira_token"`
+	HourOfCleaning int      `toml:"hour_of_cleaning"`
+	Period         int      `toml:"period"`
+	Project        string   `toml:"project"`
 }
 
 // getConfig - parse file config.toml
@@ -78,10 +80,10 @@ func main() {
 	}
 
 	for {
-		if time.Now().Hour() == cfg.Hour {
+		if time.Now().Hour() == cfg.HourOfCleaning {
 			cfg = getConfig()
 
-			list, err := getWhiteList(cfg.Login, cfg.Pass, cfg.Project)
+			list, err := getWhiteList(cfg.Login, cfg.JiraToken, cfg.Project)
 			if err != nil {
 				p.WriteLog(2, time.Now(), err.Error())
 			}
@@ -110,4 +112,8 @@ func main() {
 			time.Sleep(time.Hour * 1)
 		}
 	}
+}
+
+func CleanDir(p *clerk.Printer) {
+
 }
