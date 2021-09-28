@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -9,6 +10,29 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/andy-smoker/clerk"
 )
+
+// CFG - struct for parsing config file
+type CFG struct {
+	Logpath        string        `toml:"log"`
+	WorkDir        string        `toml:"work_directory"`
+	ServiceDirs    []string      `toml:"service_dirs"`
+	Ignore         []string      `toml:"ignore_list"`
+	Login          string        `toml:"login"`
+	JiraToken      string        `toml:"jira_token"`
+	HourOfCleaning int           `toml:"hour_of_cleaning"`
+	Period         time.Duration `toml:"period"`
+	Project        string        `toml:"project"`
+}
+
+// getConfig - parse file config.toml
+func getConfig() *CFG {
+	cfg := &CFG{
+		Logpath: "./rm.log",
+		WorkDir: "./",
+	}
+	toml.DecodeFile("config.toml", cfg)
+	return cfg
+}
 
 // get issues list with status "In Testing" or "Ready for Testing"
 func getWhiteList(login, pass, project string) ([]string, error) {
@@ -41,70 +65,57 @@ func getWhiteList(login, pass, project string) ([]string, error) {
 
 }
 
-// CFG - struct for parsing config file
-type CFG struct {
-	Logpath string   `toml:"log"`
-	WorkDir string   `toml:"work"`
-	Ignore  []string `toml:"ignore"`
-	Login   string   `toml:"login"`
-	Pass    string   `toml:"pass"`
-	Hour    int      `toml:"hour"`
-	Project string   `toml:"project"`
-}
-
-// getConfig - parse file config.toml
-func getConfig() *CFG {
-	cfg := &CFG{
-		Logpath: "./rm.log",
-		WorkDir: "./",
+// func for check file/directory name in ignore list
+func checkInIgnore(filename string, ignoreList []string) bool {
+	for _, l := range ignoreList {
+		if filename == l {
+			return false
+		}
 	}
-	toml.DecodeFile("config.toml", cfg)
-	return cfg
+	return true
 }
 
 func main() {
 	cfg := getConfig()
+
 	// create new logs printer
-	p := clerk.NewPrinter("INFO", "gongfarmer", cfg.Logpath)
+	p := clerk.NewPrinter("trace", "gongfarmer", cfg.Logpath)
 	p.WriteLog(1, time.Now(), "start")
-	// anonimus func for check file/directory name in ignore list
-	check := func(name string, list []string) bool {
-		for _, l := range list {
-			for name == l {
-				return false
-			}
-		}
-		return true
-	}
 
 	for {
-		if time.Now().Hour() == cfg.Hour {
+		if time.Now().Hour() == cfg.HourOfCleaning {
 			cfg = getConfig()
 
-			list, err := getWhiteList(cfg.Login, cfg.Pass, cfg.Project)
+			ignoreList, err := getWhiteList(cfg.Login, cfg.JiraToken, cfg.Project)
 			if err != nil {
 				p.WriteLog(2, time.Now(), err.Error())
 			}
-			list = append(list, cfg.Ignore...)
+			ignoreList = append(ignoreList, cfg.Ignore...)
 
-			dir, err := os.ReadDir(cfg.WorkDir)
-			if err != nil {
-				p.WriteLog(2, time.Now(), err.Error())
-			}
+			//нужно этот изврат переделать
+			for _, d := range cfg.ServiceDirs {
 
-			for _, f := range dir {
-				if check(f.Name(), list) {
-					err = os.RemoveAll(cfg.WorkDir + f.Name())
-					if err != nil {
-						p.WriteLog(2, time.Now(), err.Error())
-					} else {
-						p.WriteLog(1, time.Now(), f.Name()+" removed")
+				files, err := os.ReadDir(fmt.Sprintf("%s/%s", cfg.WorkDir, d))
+				if err != nil {
+					p.WriteLog(2, time.Now(), err.Error())
+					continue
+				}
+
+				for _, f := range files {
+					if checkInIgnore(f.Name(), ignoreList) {
+
+						err = os.RemoveAll(fmt.Sprintf("%s/%s/%s", cfg.WorkDir, d, f.Name()))
+						if err != nil {
+							p.WriteLog(2, time.Now(), err.Error())
+						} else {
+							p.WriteLog(0, time.Now(), f.Name()+" removed")
+						}
 					}
 				}
 			}
 
-			p.WriteLog(1, time.Now(), "Wait 24h")
-			time.Sleep(time.Hour * 24)
+			p.WriteLog(1, time.Now(), fmt.Sprintf("Wait %d days", cfg.Period))
+			time.Sleep(time.Hour * 24 * cfg.Period)
 		} else {
 			p.WriteLog(1, time.Now(), "Wait 1h")
 			time.Sleep(time.Hour * 1)
