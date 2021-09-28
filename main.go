@@ -79,7 +79,7 @@ func main() {
 	cfg := getConfig()
 
 	// create new logs printer
-	p := clerk.NewPrinter("INFO", "gongfarmer", cfg.Logpath)
+	p := clerk.NewPrinter("trace", "gongfarmer", cfg.Logpath)
 	p.WriteLog(1, time.Now(), "start")
 
 	for {
@@ -108,7 +108,7 @@ func main() {
 						if err != nil {
 							p.WriteLog(2, time.Now(), err.Error())
 						} else {
-							p.WriteLog(1, time.Now(), f.Name()+" removed")
+							p.WriteLog(0, time.Now(), f.Name()+" removed")
 						}
 					}
 				}
