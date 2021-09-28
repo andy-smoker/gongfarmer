@@ -1,4 +1,4 @@
-module github.com/andy-smoker/gongfarmer/v0.1
+module github.com/andy-smoker/gongfarmer
 
 go 1.16
 
