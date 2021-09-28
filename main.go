@@ -91,15 +91,19 @@ func main() {
 				p.WriteLog(2, time.Now(), err.Error())
 			}
 			ignoreList = append(ignoreList, cfg.Ignore...)
-			dir, err := os.ReadDir(cfg.WorkDir)
-			if err != nil {
-				p.WriteLog(2, time.Now(), err.Error())
-			}
 
 			//нужно этот изврат переделать
 			for _, d := range cfg.ServiceDirs {
-				for _, f := range dir {
+
+				files, err := os.ReadDir(fmt.Sprintf("%s/%s", cfg.WorkDir, d))
+				if err != nil {
+					p.WriteLog(2, time.Now(), err.Error())
+					continue
+				}
+
+				for _, f := range files {
 					if checkInIgnore(f.Name(), ignoreList) {
+
 						err = os.RemoveAll(fmt.Sprintf("%s/%s/%s", cfg.WorkDir, d, f.Name()))
 						if err != nil {
 							p.WriteLog(2, time.Now(), err.Error())
